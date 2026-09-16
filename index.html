@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>ResQMap Pro — Intelligent Disaster Rescue Simulator</title>
+<meta content="Interactive disaster rescue simulator showing victims, hazards, blocked paths, short and safe routes, obstacles and estimated rescue time." name="description"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
+<style>
+:root{--bg:#06101d;--panel:#0c1929;--panel2:#10253c;--line:#24405b;--text:#edf6ff;--muted:#91a8c0;--green:#2bd67d;--yellow:#f2c75c;--red:#ff5968;--blue:#4da3ff;--cyan:#52d7e9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+.navbar{background:#071524;border-bottom:1px solid var(--line)}.brand{display:flex;gap:10px;align-items:center}.logo{width:41px;height:41px;border-radius:12px;display:grid;place-items:center;background:#142b45;border:1px solid #365776}
+.muted{color:var(--muted)}.xs{font-size:.76rem}.panel{background:linear-gradient(145deg,var(--panel),#081523);border:1px solid var(--line);border-radius:15px}.sidebar{min-height:calc(100vh - 65px);background:#081524;border-right:1px solid var(--line)}
+.navitem{padding:10px 12px;border-radius:10px;color:#9eb1c6;margin:3px 0;cursor:pointer}.navitem:hover,.navitem.active{background:#152a43;color:#fff}
+.mapcard{height:625px;position:relative}.map{height:100%;border-radius:13px;overflow:hidden}.maptop{position:absolute;z-index:1000;top:14px;left:14px;background:#06101deb;border:1px solid var(--line);border-radius:12px;padding:11px 14px}.legend{position:absolute;z-index:1000;right:14px;bottom:14px;background:#06101df2;border:1px solid var(--line);border-radius:12px;padding:11px;font-size:.73rem}.leg{display:flex;gap:7px;align-items:center;margin:5px 0}.dot{width:10px;height:10px;border-radius:50%}
+.marker{width:35px;height:35px;border-radius:50%;display:grid;place-items:center;border:2px solid white;box-shadow:0 2px 13px #000a;font-size:17px}.victim{background:var(--red)}.team{background:var(--blue)}.hazard{background:#677380}.pulse{animation:pulse 1.4s infinite}@keyframes pulse{70%{box-shadow:0 0 0 14px #ff596800}}
+.stat{padding:13px 15px;height:100%}.num{font-size:1.55rem;font-weight:850}.badge-soft{display:inline-block;padding:5px 8px;border-radius:99px;font-size:.68rem;font-weight:800}.green{color:var(--green);background:#2bd67d18}.yellow{color:var(--yellow);background:#f2c75c18}.red{color:var(--red);background:#ff596818}.blue{color:var(--blue);background:#4da3ff18}.cyan{color:var(--cyan);background:#52d7e918}
+select,input{background:#091827!important;color:#eaf3ff!important;border-color:#2a4560!important}select:focus,input:focus{box-shadow:none!important;border-color:#4f779d!important}.btn-outline-light{border-color:#3c5770;color:#e1edf8}.btn-outline-light:hover{background:#162c45;color:white}
+.route{background:#091827;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}.route:hover{border-color:#55718c}.route.best{border-color:var(--green);box-shadow:0 0 0 1px #2bd67d20}.route.blocked{opacity:.75;border-color:#71333c}.shortest{border-color:#4da3ff;box-shadow:0 0 0 1px #4da3ff20}.deviation{border:1px solid #6d5830;background:#211b0d;border-radius:12px;padding:12px}.bar{height:5px;border-radius:99px;background:#20354b;overflow:hidden}.bar span{display:block;height:100%}
+.person{padding:10px 5px;border-bottom:1px solid #1e334b;cursor:pointer}.person:hover{background:#0f2237}.person.selected{background:#122b43;border-radius:9px}
+.alertbox{border:1px solid #71333c;background:#25151a;border-radius:12px;padding:12px}.success{border:1px solid #236346;background:#0c251b;border-radius:12px;padding:12px}
+.info{border:1px solid #2d5978;background:#0b2133;border-radius:12px;padding:12px}.mini-card{background:#0a1828;border:1px solid var(--line);border-radius:10px;padding:10px}
+.timeline{border-left:2px solid #2a425c;padding-left:15px;margin-left:6px}.event{position:relative;margin-bottom:12px}.event:before{content:"";position:absolute;left:-21px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--blue);border:2px solid var(--panel)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#0d1b2d;color:#edf6ff}.leaflet-popup-content{margin:12px}.leaflet-control-zoom a{background:#0d1b2d!important;color:white!important;border-color:#344d68!important}
+@media(max-width:991px){.sidebar{min-height:auto;border-right:0;border-bottom:1px solid var(--line)}.mapcard{height:480px}}
+
+/* Reference-style route legend and blocked-point note */
+.route-legend-box{
+ position:absolute;left:12px;bottom:12px;z-index:900;width:305px;
+ background:rgba(4,15,27,.95);border:1px solid #2c536f;border-radius:10px;
+ padding:12px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.45)
+}
+.route-legend-title{font-weight:700;margin-bottom:8px}
+.route-legend-row{display:flex;align-items:center;gap:9px;margin:7px 0;font-size:12px}
+.route-swatch{width:42px;height:6px;border-radius:8px;display:inline-block}
+.route-swatch.dashed{background:repeating-linear-gradient(90deg,#4da3ff 0 9px,transparent 9px 15px)}
+.route-swatch.purple{background:#b83cff;box-shadow:0 0 8px #b83cff}
+.route-swatch.green{background:#20e875}
+.route-swatch.cyan{background:#16cde0}
+.route-swatch.yellow{background:#ffc21c}
+.block-key{font-size:21px;line-height:1;color:#ff3f4d;font-weight:900}
+.block-note{
+ position:absolute;right:12px;top:12px;z-index:950;min-width:235px;max-width:310px;
+ background:rgba(5,15,27,.96);border:1px solid #ff5968;border-radius:10px;
+ padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.5)
+}
+.block-note .key{color:#ff5968;font-weight:800}
+.block-note .small-minus{color:#d8e6f2;font-size:11px;margin-top:3px}
+.route-card.selected-safe{border-color:#b83cff!important;box-shadow:0 0 18px rgba(184,60,255,.18)}
+
+
+/* Compact route legend */
+.route-legend,.routeLegend,#routeLegend,.route-legend-box,.legend-box{
+  font-size:9px!important;line-height:1.25!important;
+  padding:6px 8px!important;margin:6px auto 0!important;
+  border-radius:7px!important;max-width:240px!important;
+}
+.route-legend h4,.routeLegend h4,#routeLegend h4,.route-legend-box h4,.legend-box h4{
+  font-size:9px!important;margin:0 0 3px!important;
+}
+.route-legend .legend-item,.routeLegend .legend-item,#routeLegend .legend-item,
+.route-legend-box .legend-item,.legend-box .legend-item{
+  margin:2px 0!important;gap:4px!important;
+}
+
+.route-legend,.routeLegend,#routeLegend,.route-legend-box,.legend-box{
+  position:absolute!important;
+  top:145px!important;
+  right:18px!important;
+  left:auto!important;
+  z-index:1000!important;
+}
+
+/* Route legend: BELOW the map, never overlay the map */
+.route-legend,
+.routeLegend,
+#routeLegend,
+.route-legend-box,
+.legend-box,
+#routeLegendBox {
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin: 10px auto 0 !important;
+  z-index: 1 !important;
+}
+
+.legend{
+  position:static!important;
+  top:auto!important;
+  right:auto!important;
+  left:auto!important;
+  bottom:auto!important;
+  transform:none!important;
+  width:fit-content!important;
+  max-width:100%!important;
+  margin:10px auto 0!important;
+  z-index:1!important;
+}
+
+/* =========================================================
+   BELOW-MAP ROUTE LEGEND + ROUTE COMPARISON
+   ========================================================= */
+.below-map-info,
+.route-info-wrapper{
+  width:100%;
+  max-width:1100px;
+  margin:14px auto 0;
+  padding:0 12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.below-map-box,
+.route-legend,
+.routeLegend,
+#routeLegend,
+.route-legend-box,
+.legend-box,
+#routeLegendBox,
+.legend{
+  position:static!important;
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  border-radius:8px!important;
+  box-sizing:border-box!important;
+}
+.below-map-box,
+.route-legend,
+.routeLegend,
+#routeLegend,
+.route-legend-box,
+.legend-box,
+#routeLegendBox,
+.legend{
+  background:#fff!important;
+  border:1px solid #c6d0d5!important;
+  box-shadow:0 2px 8px rgba(25,45,55,.12)!important;
+  color:#20333c!important;
+}
+.route-legend-title{
+  font-size:11px;
+  font-weight:800;
+  padding:9px 12px 6px;
+  border-bottom:1px solid #e2e7e9;
+}
+.route-legend-content{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 18px;
+  padding:8px 12px 10px;
+}
+.route-legend-item{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:10px;
+  font-weight:600;
+}
+.route-swatch{
+  width:30px;
+  height:4px;
+  border-radius:3px;
+  display:inline-block;
+}
+.route-swatch.blue{background:#1769b5}
+.route-swatch.purple{background:#6f16a8}
+.route-swatch.green{background:#176b3c}
+
+.route-comparison{
+  width:100%;
+  background:#fff;
+  border:1px solid #c6d0d5;
+  border-radius:8px;
+  overflow:hidden;
+  box-shadow:0 2px 8px rgba(25,45,55,.12);
+}
+.route-comparison-title{
+  padding:9px 12px;
+  font-size:11px;
+  font-weight:800;
+  color:#20333c;
+  border-bottom:1px solid #e2e7e9;
+}
+.route-comparison table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:10px;
+}
+.route-comparison th{
+  background:#f1f4f5;
+  color:#31444d;
+  font-weight:800;
+  text-align:left;
+  padding:7px 9px;
+  border-bottom:1px solid #dce3e6;
+}
+.route-comparison td{
+  padding:7px 9px;
+  border-bottom:1px solid #edf0f1;
+  color:#344850;
+}
+.route-comparison tr:last-child td{border-bottom:0}
+.route-name{
+  display:flex;align-items:center;gap:7px;font-weight:700;
+}
+.route-status-safe{color:#176b3c;font-weight:800}
+.route-status-blocked{color:#c62835;font-weight:800}
+.route-time{font-weight:800;white-space:nowrap}
+@media(max-width:700px){
+ .route-comparison{overflow-x:auto}
+ .route-comparison table{min-width:650px}
+ .route-legend-content{gap:7px 12px}
+}
+</style>
+<style>
+/* Black route legend + comparison boxes */
+#belowMapRouteInfo .below-map-box,
+#belowMapRouteInfo .route-legend,
+#belowMapRouteInfo .routeLegend,
+#belowMapRouteInfo .legend-box,
+#belowMapRouteInfo .route-comparison {
+  background:#0b0b0b !important;
+  border:1px solid #333 !important;
+  color:#f2f2f2 !important;
+  box-shadow:0 3px 12px rgba(0,0,0,.35) !important;
+}
+#belowMapRouteInfo .route-legend-title,
+#belowMapRouteInfo .route-comparison-title {
+  color:#ffffff !important;
+  border-bottom:1px solid #333 !important;
+}
+#belowMapRouteInfo .route-legend-item,
+#belowMapRouteInfo .route-comparison td {
+  color:#e8e8e8 !important;
+}
+#belowMapRouteInfo .route-comparison th {
+  background:#181818 !important;
+  color:#ffffff !important;
+  border-bottom:1px solid #333 !important;
+}
+#belowMapRouteInfo .route-comparison td {
+  border-bottom:1px solid #292929 !important;
+}
+#belowMapRouteInfo .route-status-safe {color:#39b86b !important}
+#belowMapRouteInfo .route-status-blocked {color:#ff5964 !important}
+#belowMapRouteInfo .route-name {color:#f2f2f2 !important}
+</style>
+<style>
+/* Make EVERY legend box black */
+.legend,
+.route-legend,
+.routeLegend,
+#routeLegend,
+.route-legend-box,
+.legend-box,
+#routeLegendBox,
+#belowMapRouteInfo .below-map-box {
+  background:#000000 !important;
+  color:#ffffff !important;
+  border:1px solid #333333 !important;
+  box-shadow:0 3px 12px rgba(0,0,0,.45) !important;
+}
+
+.legend *,
+.route-legend *,
+.routeLegend *,
+#routeLegend *,
+.route-legend-box *,
+.legend-box *,
+#routeLegendBox * {
+  color:#ffffff !important;
+}
+
+.legend .route-swatch,
+.route-legend .route-swatch,
+.routeLegend .route-swatch,
+#routeLegend .route-swatch {
+  color:initial !important;
+}
+
+#belowMapRouteInfo .route-legend-title,
+#belowMapRouteInfo .route-comparison-title {
+  background:#000000 !important;
+  color:#ffffff !important;
+  border-bottom:1px solid #333333 !important;
+}
+</style>
+<style>
+/* =========================================================
+   CONTROL CENTER FIX
+   ========================================================= */
+#controlCenter,
+.control-center,
+.controls,
+#controls,
+.control-panel,
+.map-controls,
+.leaflet-control-container,
+button.control-btn,
+.control-btn {
+  position:relative !important;
+  z-index:99999 !important;
+  pointer-events:auto !important;
+}
+
+#controlCenter *,
+.control-center *,
+.controls *,
+#controls *,
+.control-panel *,
+.map-controls *,
+button.control-btn,
+.control-btn {
+  pointer-events:auto !important;
+}
+
+/* Keep the map behind the controls */
+#scene,
+#map,
+.map-container,
+.mapArea,
+.canvas-container {
+  position:relative;
+  z-index:1 !important;
+}
+
+/* Any HUD that should be visible but not block controls */
+.hud {
+  z-index:20;
+}
+
+/* Explicitly reserve the control-center layer */
+#controlCenter {
+  isolation:isolate;
+}
+</style>
+<style>
+.scenario-selector{
+  position:fixed;top:18px;left:50%;transform:translateX(-50%);
+  z-index:100000;background:#050505;color:#fff;border:1px solid #3b3b3b;
+  border-radius:9px;padding:7px 10px;display:flex;align-items:center;gap:8px;
+  box-shadow:0 4px 16px rgba(0,0,0,.35);font-family:Arial,sans-serif;
+}
+.scenario-selector label{font-size:10px;font-weight:800;letter-spacing:.5px}
+.scenario-selector select{
+  background:#151515;color:#fff;border:1px solid #555;border-radius:6px;
+  padding:5px 26px 5px 7px;font-size:10px;outline:none;cursor:pointer;
+}
+.scenario-summary{
+  position:fixed;top:70px;left:18px;z-index:99999;width:270px;
+  background:#050505;color:#fff;border:1px solid #383838;border-radius:9px;
+  padding:10px;box-shadow:0 4px 16px rgba(0,0,0,.35);
+  font-family:Arial,sans-serif;pointer-events:none;
+}
+.scenario-summary .scenario-title{font-size:12px;font-weight:800;margin-bottom:6px}
+.scenario-summary .scenario-item{font-size:9px;line-height:1.45;margin:4px 0;color:#ddd}
+.scenario-summary b{color:#fff}
+.scenario-summary .scenario-danger{color:#ff6570}
+.scenario-summary .scenario-safe{color:#52c987}
+</style>
+<style>
+.scenario-selector select{min-width:170px}
+.scenario-summary{
+  transition:opacity .2s ease,transform .2s ease;
+}
+.scenario-summary .scenario-title{
+  letter-spacing:.4px;
+  border-bottom:1px solid #333;
+  padding-bottom:5px;
+}
+</style>
+<style>
+#disasterScenario{cursor:pointer!important;pointer-events:auto!important}
+.scenario-selector,.scenario-summary{z-index:100000!important}
+.scenario-summary{background:#000!important;color:#fff!important;border:1px solid #555!important}
+</style>
+<style id="scenarioControllerFix">
+#scenarioSelectorBox{
+  position:fixed!important;
+  top:18px!important;
+  left:50%!important;
+  transform:translateX(-50%)!important;
+  z-index:2147483647!important;
+  pointer-events:auto!important;
+}
+#scenarioSelectorBox select{
+  position:relative!important;
+  z-index:2147483647!important;
+  pointer-events:auto!important;
+  cursor:pointer!important;
+  user-select:auto!important;
+  display:inline-block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+#scenarioSummary{
+  position:fixed!important;
+  top:70px!important;
+  left:18px!important;
+  z-index:2147483646!important;
+  pointer-events:none!important;
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+</style>
+<style id="scenario-final-fix">
+#scenarioSelectorBox{
+  position:fixed!important;
+  top:18px!important;
+  left:50%!important;
+  transform:translateX(-50%)!important;
+  z-index:2147483647!important;
+  pointer-events:auto!important;
+}
+#scenarioSelectorBox select{
+  pointer-events:auto!important;
+  cursor:pointer!important;
+  position:relative!important;
+  z-index:2147483647!important;
+  display:inline-block!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+</style>
+<style id="victimListBelowMap">
+.victim-list{
+  position:relative!important;
+  left:auto!important;
+  bottom:auto!important;
+  width:100%!important;
+  max-width:1100px!important;
+  margin:14px auto 20px!important;
+  box-sizing:border-box!important;
+  background:#000!important;
+  color:#fff!important;
+  border:1px solid #444!important;
+  border-radius:8px!important;
+  padding:10px 12px!important;
+  box-shadow:0 4px 16px rgba(0,0,0,.35)!important;
+  z-index:20!important;
+  font:10px Arial,sans-serif!important;
+}
+.victim-list-title{
+  font-weight:800!important;
+  font-size:11px!important;
+  margin-bottom:7px!important;
+  padding-bottom:7px!important;
+  border-bottom:1px solid #333!important;
+}
+#victimListItems{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:5px!important;
+}
+.victim-list-item{
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  padding:6px 5px!important;
+  border:1px solid #292929!important;
+  border-radius:5px!important;
+  cursor:pointer!important;
+  background:#080808!important;
+}
+.victim-list-item:hover{background:#171717!important}
+@media(max-width:800px){
+  #victimListItems{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:500px){
+  #victimListItems{grid-template-columns:1fr!important}
+}
+</style>
+<style id="noLegends">
+#mainMapLegend,#routeLegend,#routeLegendBox,#mapLegend,#mapLegendBox,
+.map-legend,.map-legend-new,.route-legend,.route-legend-box,
+.routeLegend,.legend-box{display:none!important;visibility:hidden!important}
+</style><style id="legendDeletedFinal">
+#mainMapLegend,#routeLegend,#routeLegendBox,#mapLegend,#mapLegendBox,
+.map-legend,.map-legend-new,.route-legend,.route-legend-box,
+.routeLegend,.legend-box,.legend-container{display:none!important}
+</style><style id="legendFullyRemoved">
+#mainMapLegend,#routeLegend,#routeLegendBox,#mapLegend,#mapLegendBox,
+.map-legend,.map-legend-new,.route-legend,.route-legend-box,
+.routeLegend,.legend-box,.legend-container{display:none!important}
+</style>
+<style id="victimVerticalAndComparisonBlack">
+/* Victim identification: one victim per row, vertically stacked */
+#victimList{
+  position:relative!important;
+  left:auto!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:auto!important;
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  padding:10px!important;
+  box-sizing:border-box!important;
+  background:#000!important;
+  color:#fff!important;
+  border:1px solid #333!important;
+  border-radius:8px!important;
+  box-shadow:0 3px 10px rgba(0,0,0,.3)!important;
+}
+#victimListItems{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:5px!important;
+}
+#victimList .victim-list-item{
+  width:100%!important;
+  min-height:38px!important;
+  height:auto!important;
+  box-sizing:border-box!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:9px!important;
+  padding:6px 9px!important;
+  margin:0!important;
+  background:#080808!important;
+  border:1px solid #292929!important;
+  border-radius:5px!important;
+}
+#victimList .victim-list-item:hover{
+  background:#161616!important;
+}
+#victimList .victim-mini{
+  flex:0 0 24px!important;
+  width:24px!important;
+  height:24px!important;
+  border-radius:50%!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  background:#c62828!important;
+  color:#fff!important;
+  border:1px solid #fff!important;
+  font-size:8px!important;
+  font-weight:800!important;
+}
+#victimList .victim-list-title{
+  font-size:11px!important;
+  font-weight:800!important;
+  padding-bottom:7px!important;
+  margin-bottom:7px!important;
+  border-bottom:1px solid #333!important;
+}
+
+/* Route comparison: black rectangular section */
+#belowMapRouteInfo .route-comparison{
+  background:#000!important;
+  color:#fff!important;
+  border:1px solid #333!important;
+  border-radius:8px!important;
+  box-shadow:0 3px 10px rgba(0,0,0,.3)!important;
+  padding:12px!important;
+  margin:0!important;
+  box-sizing:border-box!important;
+}
+#belowMapRouteInfo .route-comparison *{
+  border-color:#333!important;
+}
+#belowMapRouteInfo .route-comparison table,
+#belowMapRouteInfo .route-comparison .table{
+  background:#050505!important;
+  color:#fff!important;
+}
+#belowMapRouteInfo .route-comparison th{
+  background:#111!important;
+  color:#fff!important;
+}
+#belowMapRouteInfo .route-comparison td{
+  background:#050505!important;
+  color:#ddd!important;
+}
+</style>
+
+<style id="routeComparisonTrueBlack">
+/* FORCE the entire Route Comparison component to black */
+.route-comparison,
+#routeComparison,
+#routeComparisonBox,
+.route-comparison-box,
+.routeComparison,
+.route-comparison-container,
+.comparison-box,
+.comparison-container{
+  background:#000000 !important;
+  background-color:#000000 !important;
+  color:#ffffff !important;
+  border-color:#333333 !important;
+  box-shadow:0 3px 10px rgba(0,0,0,.35) !important;
+}
+
+/* Remove white/light backgrounds from every nested element */
+.route-comparison *,
+#routeComparison *,
+#routeComparisonBox *,
+.route-comparison-box *,
+.routeComparison *,
+.comparison-box *,
+.comparison-container *{
+  background-color:transparent !important;
+}
+
+/* Keep headers/rows visibly black rather than transparent */
+.route-comparison table,
+.route-comparison thead,
+.route-comparison tbody,
+.route-comparison tr,
+.route-comparison th,
+.route-comparison td,
+#routeComparison table,
+#routeComparison th,
+#routeComparison td,
+#routeComparisonBox table,
+#routeComparisonBox th,
+#routeComparisonBox td{
+  background:#000000 !important;
+  color:#ffffff !important;
+  border-color:#333333 !important;
+}
+
+.route-comparison th,
+#routeComparison th,
+#routeComparisonBox th{
+  background:#111111 !important;
+  color:#ffffff !important;
+}
+
+.route-comparison td,
+#routeComparison td,
+#routeComparisonBox td{
+  background:#000000 !important;
+  color:#dddddd !important;
+}
+
+/* Common Bootstrap utility classes that may be overriding the box */
+.route-comparison.bg-white,
+.route-comparison .bg-white,
+.route-comparison .bg-light,
+.route-comparison .card,
+.route-comparison .card-body,
+#routeComparison.bg-white,
+#routeComparison .bg-white,
+#routeComparison .bg-light,
+#routeComparison .card,
+#routeComparison .card-body{
+  background:#000000 !important;
+  background-color:#000000 !important;
+  color:#ffffff !important;
+}
+</style>
+
+<style id="routeComparisonBrightFinal">
+/* Brighter route colors for easy visualization */
+:root{
+  --route-blue:#19a7ff;
+  --route-green:#32e85d;
+  --route-purple:#c044ff;
+}
+
+/* Route comparison visual samples */
+.route-comparison .route-line,
+.route-comparison .visual-line,
+.route-comparison .route-sample,
+.route-comparison .line-blue,
+.route-comparison .line-green,
+.route-comparison .line-purple{
+  display:inline-block!important;
+  height:6px!important;
+  min-width:64px!important;
+  border-radius:8px!important;
+  vertical-align:middle!important;
+  box-shadow:0 0 7px currentColor!important;
+}
+
+/* Direct shortest = BLUE */
+.route-comparison .line-blue,
+.route-comparison .direct-shortest-line{
+  background:var(--route-blue)!important;
+  color:var(--route-blue)!important;
+}
+
+/* Safest & shortest = PURPLE */
+.route-comparison .line-purple,
+.route-comparison .safest-shortest-line{
+  background:var(--route-purple)!important;
+  color:var(--route-purple)!important;
+}
+
+/* Safe Route 2 AND Safe Route 3 = GREEN */
+.route-comparison .line-green,
+.route-comparison .safe-route-2-line,
+.route-comparison .safe-route-3-line{
+  background:var(--route-green)!important;
+  color:var(--route-green)!important;
+}
+
+/* Make the route names and visual-line column clearly readable */
+.route-comparison .route-name,
+.route-comparison td:first-child{
+  font-weight:700!important;
+  color:#fff!important;
+}
+.route-comparison .visual-line,
+.route-comparison td:nth-child(2){
+  text-align:center!important;
+}
+
+/* If the existing page uses inline SVG/canvas-like route samples,
+   ensure the comparison's line swatches are bright and visible. */
+.route-comparison svg line,
+.route-comparison svg path{
+  filter:drop-shadow(0 0 3px currentColor)!important;
+}
+</style>
+
+<style id="routeComparisonVisibleFix">
+/* ===== ROUTE COMPARISON: HIGH-CONTRAST VISUAL KEY ===== */
+.route-comparison{
+  background:#000!important;
+  color:#fff!important;
+  border:1px solid #333!important;
+}
+.route-comparison .route-comparison-title{
+  background:#000!important;
+  color:#fff!important;
+}
+.route-comparison table{
+  background:#000!important;
+  color:#fff!important;
+}
+.route-comparison th{
+  background:#101010!important;
+  color:#fff!important;
+  border-color:#333!important;
+}
+.route-comparison td{
+  background:#000!important;
+  color:#eee!important;
+  border-color:#292929!important;
+}
+.route-comparison .route-name{
+  color:#fff!important;
+  font-weight:800!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+}
+
+/* Every route swatch in the comparison gets a bright, thick visual sample. */
+.route-comparison .route-swatch{
+  display:inline-block!important;
+  width:54px!important;
+  height:7px!important;
+  min-width:54px!important;
+  flex:0 0 54px!important;
+  border-radius:8px!important;
+  opacity:1!important;
+  box-shadow:0 0 6px currentColor!important;
+}
+
+/* 1 — Direct shortest route = BLUE */
+.route-comparison .route-swatch.blue{
+  background:#19a7ff!important;
+  color:#19a7ff!important;
+  background-image:repeating-linear-gradient(
+    90deg,#19a7ff 0 10px,transparent 10px 16px
+  )!important;
+}
+
+/* 2 — Shortest safe route = PURPLE */
+.route-comparison .route-swatch.purple{
+  background:#c044ff!important;
+  color:#c044ff!important;
+}
+
+/* 3 — Safe route 2 = GREEN */
+.route-comparison .route-swatch.green{
+  background:#32e85d!important;
+  color:#32e85d!important;
+}
+
+/* 4 — Safe route 3 = GREEN */
+.route-comparison tr:nth-of-type(5) .route-swatch.green{
+  background:#32e85d!important;
+  color:#32e85d!important;
+}
+
+/* Make the visual-line column wide enough to actually display the samples. */
+.route-comparison th:nth-child(2),
+.route-comparison td:nth-child(2){
+  min-width:105px!important;
+  text-align:center!important;
+}
+
+/* Keep route names unmistakable */
+.route-comparison td:first-child{
+  min-width:180px!important;
+}
+</style>
+
+<style id="resq-sos-style">
+#resqSOS{
+  position:fixed;right:22px;bottom:22px;z-index:100000;
+  width:min(360px,calc(100vw - 28px));
+  background:#050b12;color:#fff;border:1px solid #33495e;border-radius:16px;
+  box-shadow:0 14px 40px #0009;padding:14px;font-family:Arial,sans-serif
+}
+#resqSOS .sos-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#resqSOS .sos-title{font-weight:800;font-size:15px}
+#resqSOS .sos-status{font-size:11px;color:#8fa8bc;margin:6px 0 10px}
+#resqSOS .sos-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#resqSOS button{border:0;border-radius:10px;padding:10px 8px;font-weight:800;cursor:pointer}
+#resqSOS #sosSend{background:#e11d2e;color:#fff;font-size:16px}
+#resqSOS #sosBluetooth{background:#1769aa;color:#fff}
+#resqSOS #sosClear{background:#273444;color:#dbe7f1}
+#resqSOS .sos-location{margin-top:9px;font-size:11px;color:#b9c8d5;line-height:1.4}
+#resqSOS .sos-alert{
+ display:none;margin-top:10px;padding:10px;border-radius:10px;
+ background:#3a0b10;border:1px solid #e11d2e;color:#fff
+}
+#resqSOS .sos-alert.active{display:block;animation:sosPulse 1.1s infinite alternate}
+@keyframes sosPulse{from{box-shadow:0 0 0 #e11d2e00}to{box-shadow:0 0 20px #e11d2e66}}
+.resq-sos-marker{
+ width:34px;height:34px;border-radius:50%;background:#e11d2e;border:3px solid #fff;
+ display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;
+ box-shadow:0 0 0 7px #e11d2e33,0 5px 14px #0008
+}
+@media(max-width:600px){
+ #resqSOS{right:10px;bottom:10px;width:calc(100vw - 20px)}
+ #resqSOS .sos-actions{grid-template-columns:1fr 1fr}
+}
+</style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#050b12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ResQMap">
+</head>
+<body>
+<div class="victim-info-panel" id="victimInfoPanel"></div>
+
+
+
+<div class="scenario-selector" id="scenarioSelectorBox">
+<label for="disasterScenario">DISASTER SCENARIO</label>
+<select id="disasterScenario">
+<option value="earthquake">🌍 Earthquake</option>
+<option value="flood">🌊 Flood</option>
+<option value="fire">🔥 Fire</option>
+<option value="buildingCollapse">🏢 Building Collapse</option>
+<option value="cyclone">🌀 Cyclone</option>
+<option value="landslide">⛰️ Landslide</option>
+</select>
+</div>
+<div class="scenario-item"><b>Hazard:</b> Structural collapse and falling debris</div>
+<div class="scenario-item scenario-danger"><b>Victim 1:</b> Trapped under collapsed structure</div>
+<div class="scenario-item"><b>Victim 2:</b> Trapped behind fallen concrete and debris</div>
+<div class="scenario-item"><b>Victim 3:</b> Isolated by damaged road section</div>
+<div class="scenario-item scenario-safe"><b>Rescue response:</b> Avoid unstable structures and blocked roads</div>
+
+<nav class="navbar sticky-top"><div class="container-fluid px-3 px-lg-4 py-2">
+<div class="brand"><div class="logo">🚨</div><div><div class="fw-bold">ResQMap Pro</div><div class="muted xs">Intelligent Disaster Rescue &amp; Route Planning</div></div></div>
+<div class="ms-auto d-flex align-items-center gap-3"><span class="xs"><span style="color:#2bd67d">●</span> LIVE OPERATION</span><button class="btn btn-sm btn-outline-light" id="eventBtn">⚡ Trigger New Obstacle</button></div>
+</div></nav>
+<div class="container-fluid"><div class="row">
+<aside class="col-lg-2 sidebar p-3">
+<div class="muted xs fw-bold text-uppercase mb-2">Control Center</div>
+<div class="navitem active">🗺️ Disaster Scene</div><div class="navitem">👥 Victim Locations</div><div class="navitem">⚠️ Hazards &amp; Obstacles</div><div class="navitem">🛣️ Route Analysis</div><div class="navitem">🚑 Rescue Teams</div>
+<hr class="border-secondary-subtle"/>
+<div class="muted xs fw-bold text-uppercase mb-2">Disaster scenario</div>
+<select class="form-select form-select-sm mb-2" id="scenario"><option value="earthquake">🌋 Earthquake</option><option value="flood">🌊 Flood</option><option value="fire">🔥 Fire</option><option value="collapse">🏚️ Building Collapse</option></select>
+<button class="btn btn-primary btn-sm w-100 mb-2" id="load">Load Scenario</button>
+<button class="btn btn-outline-light btn-sm w-100" id="reset">Reset</button>
+<hr class="border-secondary-subtle"/>
+<div class="muted xs fw-bold text-uppercase mb-2">Route objective</div>
+<div class="xs muted">Find the shortest <b class="text-light">safe and accessible</b> route, not just the shortest distance.</div>
+</aside>
+<main class="col-lg-10 p-3 p-lg-4">
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-3 gap-2">
+<div><h1 class="h4 fw-bold mb-1">Live Disaster Rescue Operation</h1><div class="muted xs">Locate victims → identify hazards → compare routes → dispatch the rescue team.</div></div>
+<span class="badge-soft red" id="status">● DISASTER ACTIVE</span>
+</div>
+<div class="row g-3 mb-3">
+<div class="col-6 col-xl-3"><div class="panel stat"><div class="muted xs">Trapped people</div><div class="num" id="pc">8</div><div class="xs muted">Known locations</div></div></div>
+<div class="col-6 col-xl-3"><div class="panel stat"><div class="muted xs">Active hazards</div><div class="num" id="hc">5</div><div class="xs muted">Danger zones</div></div></div>
+<div class="col-6 col-xl-3"><div class="panel stat"><div class="muted xs">Blocked paths</div><div class="num" id="bc">3</div><div class="xs muted">Cannot be used</div></div></div>
+<div class="col-6 col-xl-3"><div class="panel stat"><div class="muted xs">Best ETA</div><div class="num" id="eta">—</div><div class="xs muted">For selected victim</div></div></div>
+</div>
+<div class="row g-3">
+<div class="col-xl-8">
+<div class="panel mapcard p-2"><div class="map" id="map">
+
+</div>
+</div>
+<div class="block-note" id="blockNote">
+<div class="key">✖  — Touch the Red ✖</div>
+<div id="blockNoteText">—  reason will appear here</div>
+<div class="small-minus">(-) Touch/click the red ✖ on the blue line to see exactly what is physically blocking the road.</div>
+</div>
+</div>
+<div class="maptop">
+<div class="fw-bold">🔴 DISASTER AREA</div>
+<div class="muted xs"><span id="scene">Earthquake</span> · Click any victim marker</div>
+<div class="muted xs mt-1">🚑 Start → 🛣️ Route → 🎯 Victim</div>
+<div class="mt-2 d-flex gap-1">
+<button class="btn btn-sm btn-outline-light" id="showShortest">🔵 Shortest</button>
+<button class="btn btn-sm btn-outline-light" id="showSafe">🟢 Safe Route</button>
+<button class="btn btn-sm btn-outline-light" id="showAll">🗺️ All Routes</button>
+</div>
+</div>
+<div class="leg"><span class="dot" style="background:#4da3ff"></span> Rescue team</div><div class="leg"><span class="dot" style="background:#2bd67d"></span> Safest route</div><div class="leg"><span class="dot" style="background:#f2c75c"></span> Alternative route</div><div class="leg"><span class="dot" style="background:#ff5968"></span> Hazard / blocked</div></div>
+</main></div>
+<section class="below-map-info" id="belowMapRouteInfo">
+</div>
+</div>
+</div>
+
+</div>
+</div></div><div class="victim-list" id="victimList">
+<div class="victim-list-title">🚨 VICTIM IDENTIFICATION — 7 PEOPLE</div>
+<div id="victimListItems"></div>
+</div><div class="route-comparison">
+<div class="route-comparison-title">📊 ROUTE COMPARISON</div>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Safety</th>
+<th>Blockage / Deviation</th>
+<th>Estimated Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><div class="route-name"><span class="route-swatch blue"></span>Direct Shortest Route</div></td>
+<td class="route-status-blocked">Blocked</td>
+<td>Collapsed building + debris</td>
+<td class="route-time">Unavailable</td>
+</tr>
+<tr>
+<td><div class="route-name"><span class="route-swatch purple"></span>Shortest Safe Route</div></td>
+<td class="route-status-safe">Safe</td>
+<td>Deviates around blockage</td>
+<td class="route-time">8 min</td>
+</tr>
+<tr>
+<td><div class="route-name"><span class="route-swatch green"></span>Safe Route 2</div></td>
+<td class="route-status-safe">Safe</td>
+<td>Obstacle-free alternative</td>
+<td class="route-time">10 min</td>
+</tr>
+<tr>
+<td><div class="route-name"><span class="route-swatch green"></span>Safe Route 3</div></td>
+<td class="route-status-safe">Safe</td>
+<td>Obstacle-free alternative</td>
+<td class="route-time">12 min</td>
+</tr>
+</tbody>
+</table>
+</div></section>
+<div class="panel p-3 mt-3">
+<div class="d-flex justify-content-between align-items-center mb-3"><div><div class="fw-bold">Route Comparison</div><div class="muted xs">Every route shows distance, obstacles, problem, risk and estimated arrival time.</div></div><span class="badge-soft blue" id="target">No target selected</span></div>
+<div id="routes"><div class="muted xs">Select a victim to calculate possible rescue routes.</div></div>
+</div>
+</div>
+<div class="col-xl-4">
+<div class="panel p-3 mb-3">
+<div class="fw-bold">🚑 Rescue Team</div><div class="muted xs mb-2">Choose the team closest to the operation.</div>
+<select class="form-select form-select-sm" id="team"><option value="t1">Team 01 — Main Road</option><option value="t2">Team 02 — East Gate</option><option value="t3">Team 03 — South Gate</option></select>
+</div>
+<div class="panel p-3 mb-3">
+<div class="d-flex justify-content-between align-items-center mb-2"><div class="fw-bold">👥 Victim Locations</div><span class="badge-soft red">LIVE</span></div>
+<div id="people"></div>
+</div>
+<div class="panel p-3 mb-3">
+<div class="fw-bold mb-2">⚠️ Hazard Analysis</div><div class="muted xs" id="hazardInfo">Select a victim to inspect the hazards affecting the routes.</div>
+</div>
+<div class="panel p-3">
+<div class="fw-bold mb-2">🎯 Rescue Decision</div><div class="muted xs" id="decision">No rescue route calculated.</div>
+</div>
+</div>
+
+<div class="panel p-3 mt-3"><div class="fw-bold mb-2">🛣️ Blocked Road → Shortest Alternate Route</div><div id="routeSummary"></div></div>
+<div class="panel p-3 mt-3">
+<div class="d-flex justify-content-between align-items-center mb-2"><div><div class="fw-bold">📡 Operation Event Log</div><div class="muted xs">Shows hazards, route changes and rescue decisions.</div></div><button class="btn btn-sm btn-outline-light" id="recalc">🔄 Recalculate</button></div>
+<div class="timeline xs" id="log"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([13.0458,80.1885],14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+
+const teams={t1:{name:'Team 01 — Main Road',lat:13.047,lng:80.174},t2:{name:'Team 02 — East Gate',lat:13.057,lng:80.190},t3:{name:'Team 03 — South Gate',lat:13.030,lng:80.184}};
+const victims=[
+{id:'P01',condition:'Critical',loc:'Collapsed Building A · Floor 2',lat:13.053,lng:80.183,time:38,score:97},
+{id:'P02',condition:'Critical',loc:'Damaged Bus · North Junction',lat:13.046,lng:80.198,time:31,score:92},
+{id:'P03',condition:'Critical',loc:'Warehouse B',lat:13.036,lng:80.179,time:26,score:88},
+{id:'P04',condition:'High',loc:'Apartment Block C',lat:13.058,lng:80.199,time:21,score:78},
+{id:'P05',condition:'High',loc:'Market Street',lat:13.033,lng:80.194,time:18,score:72},
+{id:'P06',condition:'Medium',loc:'School Building',lat:13.050,lng:80.204,time:14,score:61},
+{id:'P07',condition:'Medium',loc:'Clinic Road',lat:13.041,lng:80.174,time:10,score:55},
+{id:'P08',condition:'Low',loc:'Residential Area',lat:13.061,lng:80.187,time:7,score:44}
+];
+const hazardData={
+earthquake:[
+{p:[13.051,80.187],name:'Collapsed road',problem:'Fallen concrete blocks',type:'Road blocked'},
+{p:[13.045,80.190],name:'Damaged bridge',problem:'Bridge structure unstable',type:'Structural hazard'},
+{p:[13.040,80.186],name:'Fallen electric pole',problem:'Live electrical line risk',type:'Electrical hazard'},
+{p:[13.055,80.194],name:'Building debris',problem:'Debris covering road',type:'Debris'},
+{p:[13.034,80.198],name:'Cracked road',problem:'Road surface unsafe',type:'Road damage'}],
+flood:[
+{p:[13.050,80.191],name:'Deep water',problem:'Road submerged',type:'Flooded road'},
+{p:[13.044,80.196],name:'Fast water flow',problem:'Vehicle cannot safely cross',type:'Flood current'},
+{p:[13.038,80.194],name:'Flooded junction',problem:'Visibility and traction reduced',type:'Flooded road'},
+{p:[13.032,80.190],name:'Damaged culvert',problem:'Road edge collapsed',type:'Structural hazard'},
+{p:[13.053,80.201],name:'Waterlogged street',problem:'Access severely slowed',type:'Flooded road'}],
+fire:[
+{p:[13.051,80.190],name:'Active fire',problem:'Extreme heat and smoke',type:'Fire zone'},
+{p:[13.048,80.193],name:'Smoke cloud',problem:'Visibility severely reduced',type:'Smoke'},
+{p:[13.044,80.196],name:'Burning structure',problem:'Falling material risk',type:'Fire zone'},
+{p:[13.040,80.199],name:'Gas leak zone',problem:'Potential ignition hazard',type:'Gas hazard'},
+{p:[13.035,80.184],name:'Burnt road',problem:'Surface damaged',type:'Road damage'}],
+collapse:[
+{p:[13.053,80.184],name:'Building collapse',problem:'Large debris pile',type:'Debris'},
+{p:[13.049,80.188],name:'Fallen wall',problem:'Road narrowed',type:'Debris'},
+{p:[13.045,80.191],name:'Collapsed flyover',problem:'Passage completely blocked',type:'Road blocked'},
+{p:[13.041,80.195],name:'Structural instability',problem:'Further collapse possible',type:'Structural hazard'},
+{p:[13.037,80.198],name:'Debris field',problem:'Vehicles cannot pass',type:'Debris'}]
+};
+let selected='P01', layers=[], routeLayers=[];
+
+function icon(c,s,p=false){return L.divIcon({className:'',html:`<div class="marker ${c} ${p?'pulse':''}">${s}</div>`,iconSize:[35,35],iconAnchor:[17,17]});}
+function clear(){layers.forEach(x=>map.removeLayer(x));routeLayers.forEach(x=>map.removeLayer(x));layers=[];routeLayers=[];}
+function scenarioName(s){return s==='collapse'?'Building Collapse':s[0].toUpperCase()+s.slice(1);}
+function log(a,b){document.getElementById('log').insertAdjacentHTML('afterbegin',`<div class="event"><b>${a}</b><span class="muted"> — ${b}</span></div>`);}
+function render(){
+ clear();const s=document.getElementById('scenario').value;document.getElementById('scene').textContent=scenarioName(s);
+ victims.forEach(v=>{let m=L.marker([v.lat,v.lng],{icon:icon('victim','👤',v.condition==='Critical')}).addTo(map);m.bindPopup(`<b>${v.id}</b> · ${v.condition}<br>${v.loc}<br><button class="btn btn-sm btn-primary mt-2" onclick="selectVictim('${v.id}')">Analyse routes</button>`);m.on('click',()=>selectVictim(v.id));layers.push(m)});
+ Object.values(teams).forEach(t=>{let m=L.marker([t.lat,t.lng],{icon:icon('team','🚑')}).addTo(map).bindPopup(`<b>${t.name}</b><br>Rescue team ready`);layers.push(m)});
+ (hazardData[s]||[]).forEach(h=>{let c=L.circle(h.p,{radius:125,color:'#ff5968',fillColor:'#ff5968',fillOpacity:.18,weight:2}).addTo(map).bindPopup(`<b>⚠ ${h.name}</b><br><span>${h.problem}</span><br><small>${h.type}</small>`);layers.push(c)});
+ document.getElementById('hc').textContent=(hazardData[s]||[]).length;document.getElementById('bc').textContent=Math.max(3,(hazardData[s]||[]).length-2);
+ populate();
+}
+function populate(){
+ document.getElementById('people').innerHTML=[...victims].sort((a,b)=>b.score-a.score).map(v=>`<div class="person ${selected===v.id?'selected':''}" onclick="selectVictim('${v.id}')"><div class="d-flex justify-content-between"><div><b>${v.id}</b> <span class="badge-soft ${v.condition==='Critical'?'red':v.condition==='High'?'yellow':'blue'}">${v.condition}</span><div class="muted xs">${v.loc}</div></div><div class="text-end"><b>${v.score}</b><div class="muted xs">${v.time}m</div></div></div></div>`).join('');
+}
+function candidates(team,v){
+ const base=Math.max(.6,Math.sqrt((team.lat-v.lat)**2+(team.lng-v.lng)**2)*88);
+ const blockPoint=[(team.lat+v.lat)/2,(team.lng+v.lng)/2];
+ const scenario=document.getElementById('scenario').value;
+ const hazards=hazardData[scenario]||[];
+ const nearest=hazards.slice().sort((a,b)=>{
+   const da=Math.hypot(a.p[0]-blockPoint[0],a.p[1]-blockPoint[1]);
+   const db=Math.hypot(b.p[0]-blockPoint[0],b.p[1]-blockPoint[1]);
+   return da-db;
+ })[0];
+
+ const exactBlock=nearest
+   ? `${nearest.name} — ${nearest.problem}`
+   : 'Collapsed concrete debris on the carriageway';
+ const blockType=nearest ? nearest.type : 'Physical road obstruction';
+
+ return [
+  {
+   name:'Shortest Direct Route',
+   dist:base, obs:1, risk:'HIGH', problem:exactBlock, blockType,
+   eta:Math.max(2,Math.round(base*3.9)), blocked:true, shortest:true,
+   blockPoint,
+   points:[[team.lat,team.lng],[v.lat,v.lng]]
+  },
+  {
+   name:'Safe Route 1',
+   dist:base*1.10, obs:0, risk:'LOW',
+   problem:'Clear road around the obstruction',
+   eta:Math.max(3,Math.round(base*1.10*4.0)),
+   blocked:false, safe:true,
+   points:[[team.lat,team.lng],[team.lat+.003,team.lng+.006],[v.lat-.003,v.lng+.006],[v.lat,v.lng]]
+  },
+  {
+   name:'Safe Route 2',
+   dist:base*1.19, obs:0, risk:'LOW',
+   problem:'Wider clear road around the hazard',
+   eta:Math.max(3,Math.round(base*1.19*4.05)),
+   blocked:false, safe:true,
+   points:[[team.lat,team.lng],[team.lat-.005,team.lng+.008],[v.lat+.005,v.lng-.005],[v.lat,v.lng]]
+  },
+  {
+   name:'Safe Route 3',
+   dist:base*1.28, obs:0, risk:'LOW',
+   problem:'Longer clear road bypassing the obstruction',
+   eta:Math.max(3,Math.round(base*1.28*4.05)),
+   blocked:false, safe:true,
+   points:[[team.lat,team.lng],[team.lat+.007,team.lng-.004],[v.lat-.006,v.lng-.006],[v.lat,v.lng]]
+  }
+ ];
+}
+let currentRoutes=[], currentVictim=null, currentTeamKey=null;
+
+function routeColor(r){
+ if(r.shortest) return '#4da3ff';
+ if(r.recommended || r.name==='Shortest Safe Route') return '#b83cff';
+ return '#20e875';
+}
+function styleSafeRoutes(rs){
+ const safe=rs.filter(r=>r.safe && !r.blocked).sort((a,b)=>a.dist-b.dist);
+ safe.forEach((r,i)=>{
+   r.altIndex=i+1;
+   r.recommended=(i===0);
+ });
+ if(safe[0]){
+   safe[0].name='Shortest Safe Route';
+   safe[0].shortestSafe=true;
+ }
+ return rs;
+}
+function addRouteLine(v,r,emphasize=false){
+ const color=routeColor(r),isPurple=r.recommended||r.name==='Shortest Safe Route';
+ const line=L.polyline(r.points,{color,weight:isPurple?8:(r.shortest?4:5),opacity:isPurple?1:.86,dashArray:r.shortest?'8 10':'',lineCap:'round',lineJoin:'round'}).addTo(map);
+ line.bindTooltip(`${r.shortest?'🔵 SHORTEST DIRECT':(isPurple?'🟣 SHORTEST SAFE':'🟢 SAFE '+r.name)} · ${r.blocked?'BLOCKED':r.eta+' min'}`,{sticky:true});
+ routeLayers.push(line);
+
+ const mid=r.points[Math.floor(r.points.length/2)];
+ const label=L.marker(mid,{icon:L.divIcon({className:'',html:`<div style="background:#06101df5;border:2px solid ${color};color:#fff;border-radius:8px;padding:5px 8px;font-size:10px;white-space:nowrap;box-shadow:0 2px 10px #0009"><b>${r.shortest?'🔵 SHORTEST DIRECT':(isPurple?'🟣 '+r.name:'🟢 '+r.name)}</b><br><span>${r.dist.toFixed(1)} km · ${r.blocked?'BLOCKED':r.eta+' min'}</span></div>`,iconSize:[1,1],iconAnchor:[0,0]})}).addTo(map);
+ routeLayers.push(label);
+
+ for(let i=1;i<r.points.length;i++){
+   const p1=r.points[i-1],p2=r.points[i];
+   const arrow=L.marker([(p1[0]+p2[0])/2,(p1[1]+p2[1])/2],{icon:L.divIcon({className:'',html:`<div style="font-size:18px;color:${color};text-shadow:0 1px 3px #000">➜</div>`,iconSize:[20,20],iconAnchor:[10,10]})}).addTo(map);
+   routeLayers.push(arrow);
+ }
+ if(r.shortest){
+   const bp=r.blockPoint;
+   const x=L.marker(bp,{icon:L.divIcon({className:'',html:`<div style="width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#ff5968;color:#fff;border:3px solid #fff;font-size:21px;font-weight:900;box-shadow:0 3px 14px #000">✖</div>`,iconSize:[38,38],iconAnchor:[19,19]})}).addTo(map);
+   x.bindTooltip(`✖ TOUCH FOR <br>${r.problem}`,{direction:'top',sticky:true});routeLayers.push(x);
+   const circle=L.circle(bp,{radius:95,color:'#ff5968',fillColor:'#ff5968',fillOpacity:.18,weight:3,dashArray:'5 7'}).addTo(map);
+   circle.bindPopup(`<b>✖ </b><br><b>What is physically blocking the road?</b><br>${r.problem}<br><br><b>Hazard type:</b> ${r.blockType||'Road obstruction'}<br><br><b>Route action:</b> The blue direct route cannot pass this obstruction. The purple route is the shortest safe alternative.`);
+   routeLayers.push(circle);
+   const note=document.getElementById('blockNoteText'); if(note) note.innerHTML=`— <b>${r.problem}</b><br><span style="font-size:10px;opacity:.8">${r.blockType||'Road obstruction'}</span>`;
+ }
+}
+function draw(teamKey,v,r,mode='selected'){
+ routeLayers.forEach(x=>map.removeLayer(x));routeLayers=[];
+ currentVictim=v;currentTeamKey=teamKey;
+
+ const rs=styleSafeRoutes(currentRoutes.length?currentRoutes:candidates(teams[teamKey],v));
+ const safe=rs.filter(x=>x.safe && !x.blocked);
+
+ // Default: exactly 4 routes = 1 blocked direct + 3 safe routes.
+ if(mode==='shortest'){
+   addRouteLine(v,rs[0],true);
+ }else{
+   addRouteLine(v,rs[0],false);
+   safe.forEach(x=>addRouteLine(v,x,x===r));
+ }
+
+ const end=L.circleMarker([v.lat,v.lng],{
+   radius:10,color:'#fff',weight:3,fillColor:'#ff5968',fillOpacity:1
+ }).addTo(map);
+ end.bindTooltip(`🎯 EXACT VICTIM — ${v.id}`,{
+   permanent:true,direction:'top',offset:[0,-8]
+ });
+ routeLayers.push(end);
+
+ const bounds=routeLayers.filter(x=>x.getBounds);
+ if(bounds.length) map.fitBounds(
+   L.featureGroup(bounds).getBounds(),
+   {padding:[70,70]}
+ );
+}
+function selectVictim(id){
+ selected=id;populate();
+ const v=victims.find(x=>x.id===id),teamKey=document.getElementById('team').value,t=teams[teamKey];
+ const rs=styleSafeRoutes(candidates(t,v));currentRoutes=rs;
+ const shortest=rs[0],available=rs.filter(r=>!r.blocked).sort((a,b)=>a.dist-b.dist),best=available[0]; best.recommended=true; best.name='Shortest Safe Route';
+ lastBest=best; rs.forEach(x=>x.bestSafe=(x===best)); draw(teamKey,v,best,'safe');
+ const deviation=best.dist-shortest.dist;
+ document.getElementById('target').textContent=`${v.id} · ${v.condition}`;
+ document.getElementById('eta').textContent=best.eta+' min';
+
+ if(document.getElementById('routeSummary')){
+ document.getElementById('routeSummary').innerHTML=`
+ <div class="row g-3">
+  <div class="col-lg-4"><div class="mini-card h-100"><div class="muted xs">🔵 ORIGINAL SHORTEST</div><div class="fw-bold mt-1">${shortest.dist.toFixed(1)} km</div><span class="badge-soft red mt-2">❌ BLOCKED</span><div class="muted xs mt-2">${shortest.problem}</div></div></div>
+  <div class="col-lg-4"><div class="mini-card h-100"><div class="muted xs">🟣 SHORTEST OF 3 SAFE ROUTES</div><div class="fw-bold mt-1">${best.dist.toFixed(1)} km</div><span class="badge-soft" style="color:#d9b8ff;background:#2a173d;border:1px solid #b56cff">✓ PURPLE = SHORTEST SAFE</span><div class="muted xs mt-2">Extra distance: <b class="text-light">+${deviation.toFixed(1)} km</b></div></div></div>
+  <div class="col-lg-4"><div class="mini-card h-100"><div class="muted xs">⏱️ RESCUE ETA</div><div class="fw-bold mt-1">${best.eta} minutes</div><span class="badge-soft blue mt-2">🚑 DISPATCH</span><div class="muted xs mt-2">Ends at exact ${v.id} location</div></div></div>
+ </div>
+ <div class="info mt-3"><b>Why did the route deviate?</b><div class="muted xs mt-1">The ${shortest.dist.toFixed(1)} km direct route is the shortest possible path, but it is blocked by <b class="text-light">${shortest.problem.toLowerCase()}</b>. The purple route is the <b class="text-light">shortest of the three </b> and adds only ${deviation.toFixed(1)} km.</div></div>`;
+ }
+
+ document.getElementById('routes').innerHTML=rs.map(r=>`
+ <div class="route ${r===best?'best':''} ${r.blocked?'blocked':''} ${r.shortest?'shortest':''}" onclick="${r.blocked?'':`draw(document.getElementById('team').value,v,rs.find(x=>x.name==='${r.name}'))`}">
+  <div class="d-flex justify-content-between align-items-center"><div><b>${r.name}</b> ${r.shortest?'<span class="badge-soft blue ms-1">SHORTEST BASELINE</span>':''} ${r===best?'<span class="badge-soft" style="color:#d9b8ff;background:#2a173d;border:1px solid #b56cff">⭐ SHORTEST OF 3</span>':''}</div><span class="badge-soft ${r.blocked?'red':r.risk==='LOW'?'green':'yellow'}">${r.blocked?'BLOCKED':r.risk}</span></div>
+  <div class="row g-2 mt-2"><div class="col-3 muted xs">Distance<br><b class="text-light">${r.dist.toFixed(1)} km</b></div><div class="col-3 muted xs">Obstacles<br><b class="text-light">${r.obs}</b></div><div class="col-3 muted xs">Problem<br><b class="text-light">${r.problem}</b></div><div class="col-3 muted xs">ETA<br><b class="text-light">${r.eta?r.eta+' min':'—'}</b></div></div>
+  ${r.deviation?`<div class="muted xs mt-2">↪ Extra distance vs shortest: <b class="text-light">+${r.deviation.toFixed(1)} km</b></div>`:''}
+  <div class="bar mt-2"><span style="width:${r.blocked?12:r===best?95:70}%;background:${r.blocked?'#ff5968':r.risk==='LOW'?'#2bd67d':'#f2c75c'}"></span></div>
+ </div>`).join('');
+
+ const scenario=document.getElementById('scenario').value,hazard=hazardData[scenario]?.[0];
+ document.getElementById('hazardInfo').innerHTML=`<div class="mini-card mb-2"><b>⚠ What is the hazard?</b><div class="muted xs mt-1">${hazard?.type||'Disaster hazard'} — ${hazard?.problem||'Hazard detected.'}</div></div><div class="mini-card mb-2"><b>✖ What exactly blocks the shortest road?</b><div class="muted xs mt-1">${shortest.problem}.</div></div><div class="mini-card"><b>↪ How does the team reach the victim?</b><div class="muted xs mt-1">The map shows <b class="text-light">three green safe routes</b> from the rescue team to the victim. The <b class="text-light">purple route</b> is the shortest among those three. The blue dashed line is the original shortest path through the blocked road.</div></div>`;
+
+ document.getElementById('decision').innerHTML=`<div class="success"><b>🟢 Dispatch via ${best.name} 🟣</b><div class="muted xs mt-1">Travel <b class="text-light">${best.dist.toFixed(1)} km</b> in approximately <b class="text-light">${best.eta} minutes</b>. The original shortest route was ${shortest.dist.toFixed(1)} km but is blocked by ${shortest.problem.toLowerCase()}.</div></div>`;
+ log(`${best.name} selected for ${v.id}`,`Shortest ${shortest.dist.toFixed(1)} km blocked → alternate ${best.dist.toFixed(1)} km → +${deviation.toFixed(1)} km → ETA ${best.eta} min`);
+}
+window.selectVictim=selectVictim;
+document.getElementById('team').addEventListener('change',()=>selectVictim(selected));
+document.getElementById('load').addEventListener('click',()=>{render();selectVictim(selected);log('Scenario loaded',scenarioName(document.getElementById('scenario').value)+' hazard map activated');});
+document.getElementById('reset').addEventListener('click',()=>{document.getElementById('scenario').value='earthquake';selected='P01';render();selectVictim('P01');map.setView([13.0458,80.1885],14);log('Operation reset','Earthquake demonstration restored');});
+document.getElementById('recalc').addEventListener('click',()=>selectVictim(selected));
+document.getElementById('eventBtn').addEventListener('click',()=>{
+ const s=document.getElementById('scenario').value,hs=hazardData[s],h=hs[Math.floor(Math.random()*hs.length)];
+ const c=L.circle(h.p,{radius:260,color:'#ff5968',fillColor:'#ff5968',fillOpacity:.32,weight:3}).addTo(map);routeLayers.push(c);
+ document.getElementById('status').textContent='⚠ ROUTE CHANGE DETECTED';document.getElementById('status').className='badge-soft red';
+ log('NEW OBSTACLE DETECTED',`${h.name} — ${h.problem}. Rescue team must recalculate before proceeding.`);
+ document.getElementById('decision').innerHTML='<div class="alertbox"><b>⚠ Route recalculation required</b><div class="muted xs mt-1">A new obstruction has appeared. Press <b class="text-light">Recalculate</b> before dispatch.</div></div>';
+});
+
+document.getElementById('showShortest').addEventListener('click',()=>{
+ if(currentVictim && currentTeamKey) draw(currentTeamKey,currentVictim,currentRoutes[0],'shortest');
+});
+document.getElementById('showSafe').addEventListener('click',()=>{
+ if(currentVictim && currentTeamKey) draw(currentTeamKey,currentVictim,lastBest,'safe');
+});
+document.getElementById('showAll').addEventListener('click',()=>{
+ if(currentVictim && currentTeamKey) draw(currentTeamKey,currentVictim,lastBest,'safe');
+});
+render();selectVictim('P01');log('Disaster detected','8 victim locations identified. Routes start at the real rescue-team location and end at the exact victim location; the shortest path is checked first and any deviation is explained.');
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const selectors = [
+    '#controlCenter','.control-center','.controls','#controls',
+    '.control-panel','.map-controls','.leaflet-control-container',
+    'button.control-btn','.control-btn'
+  ];
+
+  selectors.forEach(sel => {
+    document.querySelectorAll(sel).forEach(el => {
+      el.style.pointerEvents = 'auto';
+      el.style.zIndex = '99999';
+    });
+  });
+
+  // Make sure transparent map/canvas layers cannot sit above the controls.
+  document.querySelectorAll('#scene canvas, #map canvas, .map-container canvas').forEach(el => {
+    if (!el.closest('#controlCenter,.control-center,.controls,#controls,.control-panel,.map-controls')) {
+      el.style.pointerEvents = 'auto';
+    }
+  });
+});
+</script>
+<script id="workingDisasterScenarioController">
+(function () {
+  const scenarios = {
+    earthquake: {
+      title:"🌍 EARTHQUAKE SCENARIO",
+      hazard:"Structural collapse, falling debris and damaged roads",
+      v1:"Trapped under a collapsed structure",
+      v2:"Pinned behind fallen concrete and debris",
+      v3:"Isolated by a cracked and damaged road",
+      block:"Collapsed building / falling debris",
+      dev:"Route diverts around unstable structures and debris"
+    },
+    flood: {
+      title:"🌊 FLOOD SCENARIO",
+      hazard:"Rising water, flooded roads and submerged low-lying areas",
+      v1:"Stranded inside a flooded ground-floor building",
+      v2:"Trapped on an isolated road surrounded by water",
+      v3:"Cut off near a submerged underpass",
+      block:"Flooded road / submerged section",
+      dev:"Route diverts to higher, passable roads"
+    },
+    fire: {
+      title:"🔥 FIRE SCENARIO",
+      hazard:"Active fire, smoke and heat-affected access areas",
+      v1:"Trapped inside a smoke-filled building",
+      v2:"Unable to exit because of a fire-blocked corridor",
+      v3:"Isolated near a heat-affected road section",
+      block:"Active fire / smoke zone",
+      dev:"Route diverts away from the fire perimeter"
+    },
+    buildingCollapse: {
+      title:"🏢 BUILDING COLLAPSE SCENARIO",
+      hazard:"Severe structural failure with collapsed floors and debris",
+      v1:"Trapped beneath a collapsed floor",
+      v2:"Blocked by concrete slabs and structural debris",
+      v3:"Trapped near a damaged stairwell or exit",
+      block:"Collapsed building / structural debris",
+      dev:"Route diverts around the unsafe building footprint"
+    },
+    cyclone: {
+      title:"🌀 CYCLONE SCENARIO",
+      hazard:"Strong winds, fallen trees and structural debris",
+      v1:"Trapped inside a wind-damaged building",
+      v2:"Blocked by fallen trees and debris",
+      v3:"Isolated by a damaged road section",
+      block:"Fallen trees / structural debris",
+      dev:"Route diverts around debris-covered roads"
+    },
+    landslide: {
+      title:"⛰️ LANDSLIDE SCENARIO",
+      hazard:"Rock, soil and debris covering access roads",
+      v1:"Trapped behind a landslide near a hillside",
+      v2:"Isolated by rock and soil debris",
+      v3:"Cut off by a partially buried access road",
+      block:"Landslide / rock and soil debris",
+      dev:"Route diverts around the landslide zone"
+    }
+  };
+
+  function updateScenario(key) {
+    const d = scenarios[key] || scenarios.earthquake;
+    const box = document.getElementById("scenarioSummary");
+    if (!box) return;
+
+    box.innerHTML =
+      '<div class="scenario-title">'+d.title+'</div>'+
+      '<div class="scenario-item"><b>Hazard:</b> '+d.hazard+'</div>'+
+      '<div class="scenario-item scenario-danger"><b>Victim 1:</b> '+d.v1+'</div>'+
+      '<div class="scenario-item"><b>Victim 2:</b> '+d.v2+'</div>'+
+      '<div class="scenario-item"><b>Victim 3:</b> '+d.v3+'</div>'+
+      '<div class="scenario-item scenario-danger"><b>Blockage:</b> '+d.block+'</div>'+
+      '<div class="scenario-item scenario-safe"><b>Deviation:</b> '+d.dev+'</div>'+
+      '<div class="scenario-item scenario-safe"><b>Rescue response:</b> Use the safest available route.</div>';
+
+    document.querySelectorAll(".scenario-dynamic-hazard").forEach(e=>e.textContent=d.hazard);
+    document.querySelectorAll(".blockage-reason,.exact-blockage,#blockageReason,[data-scenario-block]").forEach(e=>e.textContent=d.block);
+    document.querySelectorAll(".deviation-reason,#deviationReason,[data-scenario-deviation]").forEach(e=>e.textContent=d.dev);
+
+    window.activeDisasterScenario=d;
+    window.activeDisasterScenarioKey=key;
+    window.dispatchEvent(new CustomEvent("disasterScenarioChanged",{detail:d}));
+  }
+
+  function init() {
+    const select=document.getElementById("disasterScenario");
+    if (!select) return;
+
+    select.addEventListener("change",function(){
+      updateScenario(this.value);
+    });
+
+    select.addEventListener("input",function(){
+      updateScenario(this.value);
+    });
+
+    updateScenario(select.value || "earthquake");
+  }
+
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",init,{once:true});
+  } else {
+    init();
+  }
+})();
+</script>
+<script id="sevenVictimController">
+(function(){
+  const victimData = {"earthquake": [["V1", "Trapped under collapsed concrete", "HIGH"], ["V2", "Inside a partially collapsed building", "HIGH"], ["V3", "Blocked by fallen structural debris", "HIGH"], ["V4", "Trapped near a damaged staircase", "MEDIUM"], ["V5", "Isolated by a collapsed road", "HIGH"], ["V6", "Trapped inside a damaged vehicle", "MEDIUM"], ["V7", "Surrounded by earthquake debris", "MEDIUM"]], "flood": [["V1", "Stranded inside a flooded ground floor", "HIGH"], ["V2", "Trapped in a waterlogged building", "HIGH"], ["V3", "Isolated by rising water", "HIGH"], ["V4", "Trapped near a flooded staircase", "MEDIUM"], ["V5", "Cut off by a submerged road", "HIGH"], ["V6", "Stranded inside a vehicle surrounded by water", "HIGH"], ["V7", "Isolated near a flooded intersection", "MEDIUM"]], "fire": [["V1", "Trapped inside a smoke-filled room", "HIGH"], ["V2", "Blocked by an active fire at the exit", "HIGH"], ["V3", "Trapped behind a fire-damaged corridor", "HIGH"], ["V4", "Unable to use the main staircase because of smoke", "HIGH"], ["V5", "Isolated near a fire-affected road", "MEDIUM"], ["V6", "Trapped inside a smoke-filled vehicle", "HIGH"], ["V7", "Cut off by the fire perimeter", "MEDIUM"]], "buildingCollapse": [["V1", "Trapped beneath a collapsed floor", "HIGH"], ["V2", "Pinned behind concrete slabs", "HIGH"], ["V3", "Trapped beside structural debris", "HIGH"], ["V4", "Blocked near a damaged stairwell", "HIGH"], ["V5", "Cut off by the collapsed building footprint", "HIGH"], ["V6", "Trapped inside a damaged vehicle", "MEDIUM"], ["V7", "Trapped near a collapsed entrance", "HIGH"]], "cyclone": [["V1", "Trapped inside a wind-damaged building", "HIGH"], ["V2", "Blocked by fallen trees", "MEDIUM"], ["V3", "Trapped behind roof debris", "HIGH"], ["V4", "Isolated by fallen utility structures", "MEDIUM"], ["V5", "Cut off by debris-covered road", "HIGH"], ["V6", "Trapped inside a damaged vehicle", "MEDIUM"], ["V7", "Blocked near a damaged intersection", "MEDIUM"]], "landslide": [["V1", "Trapped behind a landslide", "HIGH"], ["V2", "Isolated by rock and soil debris", "HIGH"], ["V3", "Blocked by a partially buried road", "HIGH"], ["V4", "Trapped near an unstable hillside", "HIGH"], ["V5", "Cut off by buried access road", "HIGH"], ["V6", "Trapped inside a vehicle near debris", "MEDIUM"], ["V7", "Isolated beyond a landslide zone", "MEDIUM"]]};
+  const coords = [[32, 38], [46, 32], [60, 42], [71, 55], [55, 68], [38, 72], [75, 76]];
+  const list = document.getElementById('victimListItems');
+  const panel = document.getElementById('victimInfoPanel');
+  const map = document.getElementById('map') || document.querySelector('.map-container,.mapArea,#scene');
+
+  let markers = [];
+
+  function scenarioKey(){
+    return window.activeDisasterScenarioKey || (document.getElementById('disasterScenario')||{}).value || 'earthquake';
+  }
+
+  function renderList(){
+    const data = victimData[scenarioKey()] || victimData.earthquake;
+    list.innerHTML = data.map((v,i)=>`
+      <div class="victim-list-item" data-victim-index="${i}">
+        <span class="victim-mini">V${i+1}</span>
+        <span><b>Victim ${i+1}</b> — ${v[2]}</span>
+      </div>`).join('');
+    list.querySelectorAll('.victim-list-item').forEach((el,i)=>el.onclick=()=>selectVictim(i));
+  }
+
+  function selectVictim(i){
+    const data = victimData[scenarioKey()] || victimData.earthquake;
+    const v=data[i];
+    if(!v) return;
+    document.querySelectorAll('.victim-id-marker').forEach((m,j)=>m.classList.toggle('selected',j===i));
+    panel.innerHTML=`
+      <div class="victim-info-title">🔴 ${v[0]} — VICTIM ${i+1}</div>
+      <div class="victim-info-row"><b>Status:</b> Trapped / Needs rescue</div>
+      <div class="victim-info-row"><b>Problem:</b> ${v[1]}</div>
+      <div class="victim-info-row victim-priority"><b>Priority:</b> ${v[2]}</div>
+      <div class="victim-info-row"><b>Location:</b> Rescue Zone ${String.fromCharCode(65+i)}-${i+12}</div>
+      <div class="victim-info-row"><b>Route:</b> <span class="victim-route">Shortest safe route</span></div>
+      <div class="victim-info-row"><b>Map ID:</b> ${v[0]}</div>`;
+    panel.classList.add('visible');
+    window.selectedVictimIndex=i;
+    window.dispatchEvent(new CustomEvent('victimSelected',{detail:{id:v[0],index:i,data:v}}));
+  }
+
+  function addMarkers(){
+    // Remove only markers created by this controller.
+    markers.forEach(m=>m.remove && m.remove());
+    markers=[];
+    if(!map) return;
+
+    const data=victimData[scenarioKey()] || victimData.earthquake;
+
+    // If the map is a normal DOM container, create overlay markers.
+    // Existing map content/routes remain untouched.
+    if(getComputedStyle(map).position==='static') map.style.position='relative';
+
+    data.forEach((v,i)=>{
+      const el=document.createElement('div');
+      el.className='victim-id-marker';
+      el.textContent='V'+(i+1);
+      el.title='Victim '+(i+1);
+      el.style.position='absolute';
+      el.style.left=coords[i][0]+'%';
+      el.style.top=coords[i][1]+'%';
+      el.style.transform='translate(-50%,-50%)';
+      el.style.zIndex='99990';
+      el.addEventListener('click',e=>{e.stopPropagation();selectVictim(i);});
+      map.appendChild(el);
+      markers.push(el);
+    });
+  }
+
+  function refresh(){
+    renderList();
+    addMarkers();
+    panel.classList.remove('visible');
+  }
+
+  window.addEventListener('disasterScenarioChanged', refresh);
+
+  if(document.readyState==='loading')
+    document.addEventListener('DOMContentLoaded',refresh,{once:true});
+  else refresh();
+})();
+</script>
+
+<section id="resqSOS" aria-label="Emergency SOS">
+  <div class="sos-head">
+    <div class="sos-title">🚨 RESQMAP SOS</div>
+    <button id="sosClear" type="button">Clear</button>
+  </div>
+  <div class="sos-status" id="sosStatus">Rescue alert system ready</div>
+  <div class="sos-actions">
+    <button id="sosSend" type="button">🚨 SOS — SEND MY LOCATION</button>
+    <button id="sosBluetooth" type="button">🔵 Connect Bluetooth</button>
+  </div>
+  <div class="sos-actions" style="margin-top:8px">
+    <button id="sosShare" type="button">📲 Share Emergency</button>
+    <button id="sosInstall" type="button">📱 Add to Home Screen</button>
+  </div>
+  <div style="margin-top:9px">
+    <label for="rescueEndpoint" style="font-size:11px;color:#9fb2c3">Rescue server URL</label>
+    <input id="rescueEndpoint" type="url" placeholder="https://your-rescue-server.example/api/sos"
+      style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #33495e;background:#0b1621;color:#fff">
+  </div>
+  <div class="sos-location" id="sosLocation">Location: waiting for SOS</div>
+  <div class="sos-alert" id="sosAlert">
+    <strong>⚠️ EMERGENCY SOS RECEIVED</strong><br>
+    Rescue team alert activated. Route guidance is highlighted on the map.
+  </div>
+</section>
+
+
+<script id="resq-sos-script">
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const statusEl=$('sosStatus'), locEl=$('sosLocation'), alertEl=$('sosAlert');
+const sendBtn=$('sosSend'), btBtn=$('sosBluetooth'), clearBtn=$('sosClear');
+const shareBtn=$('sosShare'), installBtn=$('sosInstall'), endpointEl=$('rescueEndpoint');
+let sosMarker=null, deferredInstall=null, btDevice=null, btServer=null, btCharacteristic=null;
+const SOS_SERVICE='19b10000-e8f2-537e-4f6c-d104768a1214';
+const SOS_CHARACTERISTIC='19b10001-e8f2-537e-4f6c-d104768a1214';
+
+function setStatus(t){if(statusEl)statusEl.textContent=t}
+function getScenario(){
+  const el=document.querySelector('#scenario, select[name="scenario"], [data-scenario]');
+  return el ? (el.value || el.dataset.scenario || 'earthquake') : 'earthquake';
+}
+function scenarioProblem(s){
+  const d={
+    earthquake:'Structural collapse / falling debris / damaged road',
+    flood:'Flooded road / rising water / submerged access',
+    fire:'Active fire / smoke / heat-affected access',
+    buildingCollapse:'Building collapse / structural debris',
+    cyclone:'Fallen trees / wind damage / structural debris',
+    landslide:'Landslide / rock and soil debris'
+  };
+  return d[s]||'Disaster hazard detected';
+}
+function selectedVictim(){
+  const e=document.querySelector('.person.selected');
+  return e ? e.textContent.trim() : 'Emergency caller';
+}
+function placeSOS(lat,lng){
+  if(typeof L==='undefined'||typeof map==='undefined') return;
+  if(sosMarker) map.removeLayer(sosMarker);
+  const icon=L.divIcon({
+    className:'',html:'<div class="resq-sos-marker">SOS</div>',
+    iconSize:[34,34],iconAnchor:[17,17]
+  });
+  sosMarker=L.marker([lat,lng],{icon,title:'Emergency SOS'}).addTo(map)
+    .bindPopup('<b>🚨 EMERGENCY SOS</b><br>Caller location received.<br>Rescue response activated.')
+    .openPopup();
+  map.setView([lat,lng],Math.max(map.getZoom(),15));
+}
+async function transmit(payload){
+  const endpoint=(endpointEl&&endpointEl.value.trim())||localStorage.getItem('resqEndpoint')||'';
+  if(!endpoint) return {sent:false,reason:'No rescue server URL configured'};
+  try{
+    const r=await fetch(endpoint,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),
+      keepalive:true
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return {sent:true};
+  }catch(e){ return {sent:false,reason:e.message}; }
+}
+function saveEndpoint(){
+  if(endpointEl&&endpointEl.value.trim()) localStorage.setItem('resqEndpoint',endpointEl.value.trim());
+}
+function buildPayload(lat,lng,source){
+  const scenario=getScenario();
+  return {
+    type:'SOS',
+    source,
+    timestamp:new Date().toISOString(),
+    location:{latitude:lat,longitude:lng,accuracyMeters:window.__resqAccuracy||null},
+    scenario,
+    detectedProblem:scenarioProblem(scenario),
+    victim:selectedVictim(),
+    status:'EMERGENCY',
+    userAgent:navigator.userAgent
+  };
+}
+async function triggerSOS(source){
+  alertEl.classList.add('active');
+  setStatus('🚨 SOS ACTIVE — acquiring precise location…');
+  if(navigator.vibrate) navigator.vibrate([300,150,300]);
+  const finish=async(lat,lng,accuracy)=>{
+    window.__resqAccuracy=accuracy;
+    const payload=buildPayload(lat,lng,source);
+    locEl.textContent=`Location: ${lat.toFixed(6)}, ${lng.toFixed(6)} • ±${Math.round(accuracy||0)}m`;
+    placeSOS(lat,lng);
+    localStorage.setItem('lastSOS',JSON.stringify(payload));
+    setStatus('🚨 SOS ACTIVE — rescue team alert generated');
+    const result=await transmit(payload);
+    if(result.sent) setStatus('🚨 SOS SENT — rescue server received location');
+    else setStatus('🚨 SOS ACTIVE — '+result.reason);
+  };
+  if(!navigator.geolocation){
+    setStatus('GPS is unavailable in this browser');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    p=>finish(p.coords.latitude,p.coords.longitude,p.coords.accuracy),
+    e=>setStatus('Location permission/error: '+e.message),
+    {enableHighAccuracy:true,timeout:12000,maximumAge:0}
+  );
+}
+sendBtn&&sendBtn.addEventListener('click',()=>{saveEndpoint();triggerSOS('phone SOS button')});
+clearBtn&&clearBtn.addEventListener('click',()=>{
+  alertEl.classList.remove('active');setStatus('Rescue alert system ready');
+  locEl.textContent='Location: waiting for SOS';
+  if(sosMarker&&typeof map!=='undefined'){map.removeLayer(sosMarker);sosMarker=null}
+});
+shareBtn&&shareBtn.addEventListener('click',async()=>{
+  const last=localStorage.getItem('lastSOS');
+  if(!last){setStatus('Press SOS first to create an emergency location');return}
+  const p=JSON.parse(last);
+  const msg=`🚨 RESQMAP SOS\nLocation: ${p.location.latitude}, ${p.location.longitude}\nScenario: ${p.scenario}\nProblem: ${p.detectedProblem}\nTime: ${p.timestamp}`;
+  try{
+    if(navigator.share){await navigator.share({title:'ResQMap Emergency SOS',text:msg})}
+    else{await navigator.clipboard.writeText(msg);setStatus('Emergency details copied — paste into your rescue channel')}
+  }catch(e){}
+});
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredInstall=e;
+  if(installBtn) installBtn.style.display='block';
+});
+installBtn&&installBtn.addEventListener('click',async()=>{
+  if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null}
+  else setStatus('Use your browser menu → Add to Home screen');
+});
+if(endpointEl) endpointEl.value=localStorage.getItem('resqEndpoint')||'';
+
+async function connectBluetooth(){
+  if(!navigator.bluetooth){setStatus('Web Bluetooth is not supported in this browser');return}
+  try{
+    setStatus('Choose the SOS Bluetooth device');
+    btDevice=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[SOS_SERVICE]});
+    btDevice.addEventListener('gattserverdisconnected',()=>{
+      setStatus('Bluetooth disconnected');btBtn.textContent='🔵 Connect Bluetooth';
+    });
+    btServer=await btDevice.gatt.connect();
+    try{
+      const service=await btServer.getPrimaryService(SOS_SERVICE);
+      btCharacteristic=await service.getCharacteristic(SOS_CHARACTERISTIC);
+      await btCharacteristic.startNotifications();
+      btCharacteristic.addEventListener('characteristicvaluechanged',e=>{
+        let msg='';try{msg=new TextDecoder().decode(e.target.value).trim().toUpperCase()}catch(_){}
+        if(msg==='SOS'||msg==='1'||msg.includes('SOS')) triggerSOS('Bluetooth SOS device');
+      });
+      setStatus('Bluetooth connected — listening for SOS');
+    }catch(_){setStatus('Bluetooth connected, but SOS service was not found')}
+    btBtn.textContent='🔵 Bluetooth Connected';
+  }catch(e){setStatus(e&&e.name==='NotFoundError'?'Bluetooth selection cancelled':'Bluetooth connection failed')}
+}
+btBtn&&btBtn.addEventListener('click',connectBluetooth);
+
+// Expose a safe integration API for a future Android app/backend.
+window.ResQMapSOS={trigger:triggerSOS,connectBluetooth,getScenario,buildPayload};
+})();
+</script>
+
+<script>
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+
+<div id="rescueLivePanel" style="
+position:fixed;left:18px;top:18px;z-index:99999;width:min(330px,calc(100vw - 36px));
+background:#050b12ee;color:#fff;border:1px solid #31485d;border-radius:14px;
+padding:12px 14px;font-family:Arial,sans-serif;box-shadow:0 12px 35px #0008">
+  <div style="font-weight:900;font-size:14px">🚑 RESCUE TEAM CONTROL</div>
+  <div id="rescueLiveStatus" style="font-size:11px;color:#9fb2c3;margin-top:5px">
+    Monitoring emergency status
+  </div>
+  <div id="rescueLiveDetails" style="font-size:12px;margin-top:8px;line-height:1.45">
+    No active SOS
+  </div>
+  <button id="ackSOS" style="
+  display:none;margin-top:9px;width:100%;padding:8px;border:0;border-radius:8px;
+  background:#16a34a;color:#fff;font-weight:800;cursor:pointer">✓ ACKNOWLEDGE SOS</button>
+</div>
+
+<script id="resq-live-monitor">
+(function(){
+'use strict';
+const status=document.getElementById('rescueLiveStatus');
+const details=document.getElementById('rescueLiveDetails');
+const ack=document.getElementById('ackSOS');
+let active=null;
+
+function render(p){
+ if(!p || p.status==='NO_ACTIVE_SOS'){
+   status.textContent='Monitoring emergency status';
+   details.textContent='No active SOS';
+   ack.style.display='none';
+   return;
+ }
+ active=p;
+ status.textContent='🚨 ACTIVE EMERGENCY';
+ details.innerHTML=
+   '<b>Scenario:</b> '+(p.scenario||'Unknown')+'<br>'+
+   '<b>Problem:</b> '+(p.detectedProblem||'Emergency')+'<br>'+
+   '<b>Location:</b> '+p.location.latitude.toFixed(6)+', '+p.location.longitude.toFixed(6)+'<br>'+
+   '<b>Accuracy:</b> ±'+Math.round(p.location.accuracyMeters||0)+' m';
+ ack.style.display='block';
+
+ if(typeof L!=='undefined' && typeof map!=='undefined'){
+   if(window.__resqTeamSOSMarker) map.removeLayer(window.__resqTeamSOSMarker);
+   const icon=L.divIcon({
+     className:'',
+     html:'<div class="resq-sos-marker">SOS</div>',
+     iconSize:[34,34],iconAnchor:[17,17]
+   });
+   window.__resqTeamSOSMarker=L.marker(
+     [p.location.latitude,p.location.longitude],{icon,title:'Incoming SOS'}
+   ).addTo(map).bindPopup(
+     '<b>🚨 INCOMING SOS</b><br>'+ (p.detectedProblem||'Emergency') +
+     '<br>Victim location received.'
+   );
+ }
+}
+ack.addEventListener('click',()=>{
+ if(!active)return;
+ active.rescueStatus='ACKNOWLEDGED';
+ localStorage.setItem('resqAcknowledged',new Date().toISOString());
+ status.textContent='✓ SOS ACKNOWLEDGED BY RESCUE TEAM';
+ ack.style.display='none';
+});
+async function poll(){
+ const endpoint=(localStorage.getItem('resqEndpoint')||'').trim();
+ if(!endpoint)return;
+ const latest=endpoint.replace(/\/+$/,'').replace(/\/api\/sos$/,'/api/sos/latest');
+ try{
+   const r=await fetch(latest,{cache:'no-store'});
+   if(r.ok) render(await r.json());
+ }catch(e){}
+}
+setInterval(poll,3000);
+window.ResQMapRescue={render,poll};
+})();
+</script>
+</body>
+</html>
